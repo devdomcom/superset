@@ -66,7 +66,35 @@ For autoreload during development:
 superset run -p 8088 --with-threads --reload --debugger --debug
 ```
 
-## 5. Run tests (SQLite-friendly subset)
+## 5. Optional: start the MCP service
+
+The MCP (Model Context Protocol) service does **not** start with `superset run` — it's a separate process. No feature flag is required to enable it.
+
+```bash
+superset mcp run --host 127.0.0.1 --port 5008
+```
+
+- Endpoint: `http://127.0.0.1:5008/mcp` (HTTP + JSON-RPC 2.0)
+- Optional config knobs: `MCP_DEV_USERNAME`, `MCP_AUTH_ENABLED`, `MCP_RBAC_ENABLED` (default `True`)
+- Docs: `docs/admin_docs/configuration/mcp-server.mdx`
+
+Smoke-test a running MCP server with `curl` — call the built-in `health_check` tool:
+
+```bash
+curl -sS -X POST http://127.0.0.1:5008/mcp \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"health_check","arguments":{}},"id":1}'
+```
+
+A healthy server returns a JSON-RPC envelope like `{"jsonrpc":"2.0","result":{...,"status":"healthy",...},"id":1}`. Listing available tools is also a useful sanity check:
+
+```bash
+curl -sS -X POST http://127.0.0.1:5008/mcp \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","method":"tools/list","id":1}'
+```
+
+## 6. Run tests (SQLite-friendly subset)
 
 Unit tests use in-memory SQLite and mocked sessions — no extra setup, matches what CI runs:
 
@@ -75,6 +103,12 @@ pytest tests/unit_tests tests/common --cache-clear
 ```
 
 Optional environment variable used by CI: `SUPERSET_TESTENV=true`.
+
+MCP service has a dedicated unit-test suite (pure unit tests; **does not** require a running MCP server — auth and DAOs are mocked, `MCP_RBAC_ENABLED` is disabled by an autouse fixture in `tests/unit_tests/mcp_service/conftest.py`):
+
+```bash
+pytest tests/unit_tests/mcp_service -v
+```
 
 Integration tests (slower, some require Postgres/MySQL and will be skipped or fail) — only run if needed:
 ```bash
@@ -100,6 +134,9 @@ Mark items confirmed working on a fresh machine; leave unchecked until validated
 - [ ] `superset run -p 8088` serves the login page at <http://localhost:8088>
 - [ ] Login as the admin user succeeds
 - [ ] `pytest tests/unit_tests tests/common` passes
+- [ ] `superset mcp run --host 127.0.0.1 --port 5008` starts the MCP server
+- [ ] `curl ... tools/call health_check` returns `status: "healthy"`
+- [ ] `pytest tests/unit_tests/mcp_service` passes
 
 ## Known issues / open questions
 
