@@ -78,11 +78,12 @@ superset mcp run --host 127.0.0.1 --port 5008
 - Optional config knobs: `MCP_DEV_USERNAME`, `MCP_AUTH_ENABLED`, `MCP_RBAC_ENABLED` (default `True`)
 - Docs: `docs/admin_docs/configuration/mcp-server.mdx`
 
-Smoke-test a running MCP server with `curl` — call the built-in `health_check` tool:
+Smoke-test a running MCP server with `curl` — call the built-in `health_check` tool. The MCP Streamable HTTP transport requires the client to accept both `application/json` and `text/event-stream`, so the `Accept` header below is mandatory:
 
 ```bash
 curl -sS -X POST http://127.0.0.1:5008/mcp \
   -H 'Content-Type: application/json' \
+  -H 'Accept: application/json, text/event-stream' \
   -d '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"health_check","arguments":{}},"id":1}'
 ```
 
@@ -91,8 +92,11 @@ A healthy server returns a JSON-RPC envelope like `{"jsonrpc":"2.0","result":{..
 ```bash
 curl -sS -X POST http://127.0.0.1:5008/mcp \
   -H 'Content-Type: application/json' \
+  -H 'Accept: application/json, text/event-stream' \
   -d '{"jsonrpc":"2.0","method":"tools/list","id":1}'
 ```
+
+> Without the `Accept` header you'll get back `{"error":{"code":-32600,"message":"Not Acceptable: Client must accept both application/json and text/event-stream"}}` — that's the server confirming it's alive, just rejecting an under-specified request.
 
 ## 6. Run tests (SQLite-friendly subset)
 
@@ -134,8 +138,8 @@ Mark items confirmed working on a fresh machine; leave unchecked until validated
 - [ ] `superset run -p 8088` serves the login page at <http://localhost:8088>
 - [ ] Login as the admin user succeeds
 - [ ] `pytest tests/unit_tests tests/common` passes
-- [ ] `superset mcp run --host 127.0.0.1 --port 5008` starts the MCP server
-- [ ] `curl ... tools/call health_check` returns `status: "healthy"`
+- [x] `superset mcp run --host 127.0.0.1 --port 5008` starts the MCP server (verified: responds to JSON-RPC on `/mcp`)
+- [ ] `curl ... tools/call health_check` returns `status: "healthy"` (requires `Accept: application/json, text/event-stream`)
 - [ ] `pytest tests/unit_tests/mcp_service` passes
 
 ## Known issues / open questions
