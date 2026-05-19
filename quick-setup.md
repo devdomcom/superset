@@ -12,15 +12,19 @@ Target: run the Superset Python/Flask backend locally against the default **SQLi
     ```bash
     sudo apt-get update
     sudo apt-get install -y \
-      python3-venv build-essential pkg-config \
+      python3-dev python3-venv build-essential pkg-config \
       default-libmysqlclient-dev libssl-dev libffi-dev libsasl2-dev libldap2-dev
     ```
-  - macOS (Homebrew):
+    If your Python is a specific minor version (e.g. 3.12), prefer the matching dev package: `python3.12-dev`.
+  - macOS (Homebrew): Python from `brew install python@3.12` already ships headers; no separate `-dev` package needed.
     ```bash
     brew install pkg-config mysql-client openssl
     ```
 
-> `default-libmysqlclient-dev` / `mysql-client` is required because `requirements/development.txt` pins `mysqlclient`, which is a C extension that links against MySQL headers at install time. Without it, `pip install` fails with `Can not find valid pkg-config name`.
+> **Why these packages are needed** — several Superset deps build C/C++ extensions during `pip install`:
+> - `contourpy`, `pyinstrument`, `python-ldap` need **Python development headers** (`Python.h` → `python3-dev` / `python3.X-dev`). Missing this is the most common failure: `fatal error: Python.h: No such file or directory`.
+> - `python-ldap` additionally needs `libsasl2-dev libldap2-dev libssl-dev`.
+> - `mysqlclient` needs `default-libmysqlclient-dev` + `pkg-config` (or skip via the workaround below).
 
 ## 2. Create virtualenv and install
 
@@ -99,6 +103,7 @@ Mark items confirmed working on a fresh machine; leave unchecked until validated
 
 ## Known issues / open questions
 
-- `mysqlclient` build failure → resolved by installing MySQL client headers (see Prerequisites) or by skipping it via `grep -v`. Decide which we want as the default path before marking these instructions final.
+- **`Python.h: No such file or directory`** → install `python3-dev` (or `python3.X-dev` matching your interpreter). Confirmed cause of `contourpy`, `pyinstrument`, and `python-ldap` wheel build failures on a minimal Debian/Ubuntu image.
+- **`mysqlclient` pkg-config failure** → install `default-libmysqlclient-dev pkg-config` (see Prerequisites) or skip it via `grep -v '^mysqlclient'`. Decide which we want as the default path before marking these instructions final.
 - Confirm whether `pip install -e .` alone (without `requirements/development.txt`) is sufficient for `pytest tests/unit_tests tests/common`. If yes, the install step can be slimmed further.
-- Confirm Python version actually in use on the target machine (the failing log shows 3.12, which is supported).
+- Confirm Python version actually in use on the target machine (failing logs show 3.12, which is supported).
